@@ -3,7 +3,11 @@ use png::HasParameters;
 use std::fs::File;
 use std::io::BufWriter;
 use std::cmp::{min, max};
+use std::thread;
+use std::sync::Arc;
+
 type Range = std::ops::Range<i32>;
+const THREADS : usize = 4;
 
 pub struct Pixels {
     width: usize,
@@ -119,15 +123,27 @@ pub fn std_filter(pixels: &Pixels, w: i32) -> Pixels {
     Pixels::new_with_data(pixels.width, pixels.height, new_data)
 }
 
-pub fn best_disp_map(l_pix: &Pixels, r_pix: &Pixels, w: i32, max_disp: usize) -> Pixels {
+pub fn best_disp_map(l_pix: Pixels, r_pix: Pixels, w: i32, max_disp: usize) -> Pixels {
     assert_eq!(l_pix.width, r_pix.width);
     assert_eq!(l_pix.height, r_pix.height);
     let rows = l_pix.height/4;
     let mut new_data = Vec::new();
-    for i in 0..4 {
+
+    let mut handles = Vec::new();
+    let l_pix = Arc::new(l_pix);
+    let r_pix = Arc::new(r_pix);
+
+    for i in 0..THREADS {
         let start_row = i*rows;
         let end_row = (i + 1)*rows;
-        let mut data_part = best_disp_part(&l_pix, &r_pix, w, max_disp, start_row, end_row);
+        let l_clone = l_pix.clone();
+        let r_clone = r_pix.clone();
+        handles.push(thread::spawn(move || {
+            return best_disp_part(&l_clone, &r_clone, w, max_disp, start_row, end_row);
+        }));
+    }
+    for handle in handles {
+        let mut data_part = handle.join().unwrap();
         new_data.append(&mut data_part);
     }
     Pixels::new_with_data(l_pix.width, l_pix.height, new_data)
