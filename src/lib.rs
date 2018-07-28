@@ -11,14 +11,6 @@ pub struct Pixels {
 }
 
 impl Pixels {
-    fn new(width: usize, height: usize) -> Pixels {
-        Pixels {
-            width,
-            height,
-            data: vec![0.0; width*height]
-        }
-    }
-
     fn new_with_data(width: usize, height: usize, data: Vec<f32>) -> Pixels {
         assert_eq!(data.len(), width*height);
         Pixels {
@@ -111,6 +103,20 @@ pub fn std_filter(pixels: &Pixels, w: i32) -> Pixels {
         }
     }
     Pixels::new_with_data(pixels.width, pixels.height, new_data)
+}
+
+pub fn best_disp_map(l_pix: &Pixels, r_pix: &Pixels, w: i32, max_disp: usize) -> Pixels {
+    assert_eq!(l_pix.width, r_pix.width);
+    assert_eq!(l_pix.height, r_pix.height);
+    let mut new_data = vec![0.0; l_pix.data.len()];
+    for row in 0..l_pix.height as i32 {
+        for col in 0..l_pix.width as i32 {
+            let idx = col + row*l_pix.width as i32;
+            let best_disp = best_zncc(&l_pix, &r_pix, col, row, w, max_disp);
+            new_data[idx as usize] = best_disp as f32 / max_disp as f32;
+        }
+    }
+    Pixels::new_with_data(l_pix.width, l_pix.height, new_data)
 }
 
 pub fn load_png_to_pixels(png_path: &str) -> Pixels {
