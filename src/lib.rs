@@ -20,11 +20,9 @@ impl Pixels {
         }
     }
 
-    fn clamp_xy(&self, x: i32, y: i32) -> (i32, i32) {
-        (max(min(x, self.width as i32 - 1), 0), max(min(y, self.height as i32 - 1), 0))
-    }
-
     fn get(&self, x: i32, y: i32) -> f32 {
+        let x = max(min(x, self.width as i32 - 1), 0);
+        let y = max(min(y, self.height as i32 - 1), 0);
         self.data[x as usize + y as usize * self.width]
     }
 }
@@ -34,8 +32,7 @@ fn mean_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
     let mut sum = 0.0;
     for row in cy-d..cy+d+1 {
         for col in cx-d..cx+d+1 {
-            let (x, y) = pixels.clamp_xy(col, row);
-            sum += pixels.get(x, y)
+            sum += pixels.get(col, row)
         }
     }
     sum / (w*w) as f32
@@ -47,8 +44,7 @@ fn std_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
     let mut sum = 0.0;
     for row in cy-d..cy+d+1 {
         for col in cx-d..cx+d+1 {
-            let (x, y) = pixels.clamp_xy(col, row);
-            let val = pixels.get(x, y);
+            let val = pixels.get(col, row);
             sum += (val - mean)*(val - mean);
         }
     }
@@ -61,9 +57,7 @@ fn zncc_window(l_pix: &Pixels, r_pix: &Pixels, cx: i32, cy: i32, w: i32, disp: i
     let mut sum = 0.0;
     for row in cy-d..cy+d+1 {
         for col in cx-d..cx+d+1 {
-            let (l_x, y) = l_pix.clamp_xy(col, row);
-            let (r_x, _) = r_pix.clamp_xy(col - disp, row);
-            sum += (l_pix.get(l_x, y) - l_mean)*(r_pix.get(r_x, y) - r_mean);
+            sum += (l_pix.get(col, row) - l_mean)*(r_pix.get(col - disp, row) - r_mean);
         }
     }
     sum / std_window(&l_pix, cx, cy, w) / std_window(&r_pix, cx - disp, cy, w)
