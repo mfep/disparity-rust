@@ -7,7 +7,6 @@ use std::thread;
 use std::sync::Arc;
 
 type Range = std::ops::Range<i32>;
-const THREADS : usize = 4;
 
 pub struct Pixels {
     width: usize,
@@ -101,39 +100,20 @@ fn best_disp_part(l_pix: &Pixels, r_pix: &Pixels, w: i32,
     data
 }
 
-pub fn mean_filter(pixels: &Pixels, w: i32) -> Pixels {
-    let mut new_data = vec![0.0; pixels.data.len()];
-    for row in 0..pixels.height as i32 {
-        for col in 0..pixels.width as i32 {
-            let idx = col + row*pixels.width as i32;
-            new_data[idx as usize] = mean_window(pixels, col, row, w);
-        }
-    }
-    Pixels::new_with_data(pixels.width, pixels.height, new_data)
-}
-
-pub fn std_filter(pixels: &Pixels, w: i32) -> Pixels {
-    let mut new_data = vec![0.0; pixels.data.len()];
-    for row in 0..pixels.height as i32 {
-        for col in 0..pixels.width as i32 {
-            let idx = col + row*pixels.width as i32;
-            new_data[idx as usize] = std_window(pixels, col, row, w);
-        }
-    }
-    Pixels::new_with_data(pixels.width, pixels.height, new_data)
-}
-
-pub fn best_disp_map(l_pix: Pixels, r_pix: Pixels, w: i32, max_disp: usize) -> Pixels {
+pub fn best_disp_map(l_pix: Pixels, r_pix: Pixels, w: i32, max_disp: usize, threads: usize)
+    -> Pixels
+{
     assert_eq!(l_pix.width, r_pix.width);
     assert_eq!(l_pix.height, r_pix.height);
-    let rows = l_pix.height/4;
+    assert_eq!(l_pix.height % threads, 0);
+    let rows = l_pix.height/threads;
     let mut new_data = Vec::new();
 
     let mut handles = Vec::new();
     let l_pix = Arc::new(l_pix);
     let r_pix = Arc::new(r_pix);
 
-    for i in 0..THREADS {
+    for i in 0..threads {
         let start_row = i*rows;
         let end_row = (i + 1)*rows;
         let l_clone = l_pix.clone();
