@@ -60,7 +60,9 @@ fn std_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
     sum.sqrt()
 }
 
-fn zncc_window(l_pix: &Pixels, r_pix: &Pixels, cx: i32, cy: i32, w: i32, disp: i32, l_mean: f32) -> f32 {
+fn zncc_window(l_pix: &Pixels, r_pix: &Pixels, cx: i32, cy: i32, w: i32, disp: i32, l_mean: f32)
+    -> f32
+{
     let (xr, yr) = window_ranges(cx, cy, w);
     let r_mean = mean_window(&r_pix, cx, cy, w);
     let mut sum = 0.0;
