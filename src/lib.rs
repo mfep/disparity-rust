@@ -63,18 +63,32 @@ fn std_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
     sum.sqrt()
 }
 
-fn zncc_window(l_pix: &Pixels, r_pix: &Pixels, cx: i32, cy: i32, w: i32, d: i32, l_mean: f32) -> f32 {
+fn zncc_window(l_pix: &Pixels, r_pix: &Pixels, cx: i32, cy: i32, w: i32, disp: i32, l_mean: f32) -> f32 {
     let d = w/2;
     let r_mean = mean_window(&r_pix, cx, cy, w);
     let mut sum = 0.0;
     for row in cy-d..cy+d+1 {
         for col in cx-d..cx+d+1 {
             let (l_x, y) = l_pix.clamp_xy(col, row);
-            let (r_x, _) = r_pix.clamp_xy(col - d, row);
+            let (r_x, _) = r_pix.clamp_xy(col - disp, row);
             sum += (l_pix.get(l_x, y) - l_mean)*(r_pix.get(r_x, y) - r_mean);
         }
     }
-    sum / std_window(&l_pix, cx, cy, w) / std_window(&r_pix, cx - d, cy, w)
+    sum / std_window(&l_pix, cx, cy, w) / std_window(&r_pix, cx - disp, cy, w)
+}
+
+fn best_zncc(l_pix: &Pixels, r_pix: &Pixels, cx: i32, cy: i32, w: i32, max_d: usize) -> usize {
+    let l_mean = mean_window(&l_pix, cx, cy, w);
+    let mut best_zncc = 0.0;
+    let mut best_disp = 0;
+    for disp in 0..max_d {
+        let zncc = zncc_window(&l_pix, &r_pix, cx, cy, w, disp as i32, l_mean);
+        if zncc > best_zncc {
+            best_zncc = zncc;
+            best_disp = disp;
+        }
+    }
+    best_disp
 }
 
 pub fn mean_filter(pixels: &Pixels, w: i32) -> Pixels {
