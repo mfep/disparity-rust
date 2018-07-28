@@ -2,11 +2,12 @@ extern crate png;
 use png::HasParameters;
 use std::fs::File;
 use std::io::BufWriter;
+use std::cmp::{min, max};
 
 pub struct Pixels {
-    pub width: usize,
-    pub height: usize,
-    pub data: Vec<f32>,
+    width: usize,
+    height: usize,
+    data: Vec<f32>,
 }
 
 impl Pixels {
@@ -19,12 +20,44 @@ impl Pixels {
     }
 
     fn new_with_data(width: usize, height: usize, data: Vec<f32>) -> Pixels {
+        assert_eq!(data.len(), width*height);
         Pixels {
             width,
             height,
             data
         }
     }
+
+    fn clamp_xy(&self, x: i32, y: i32) -> (i32, i32) {
+        (max(min(x, self.width as i32 - 1), 0), max(min(y, self.height as i32 - 1), 0))
+    }
+
+    fn get(&self, x: i32, y: i32) -> f32 {
+        self.data[x as usize + y as usize * self.width]
+    }
+}
+
+fn window_mean(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
+    let d = w/2;
+    let mut sum = 0.0;
+    for row in cy-d..cy+d+1 {
+        for col in cx-d..cx+d+1 {
+            let (x, y) = pixels.clamp_xy(col, row);
+            sum += pixels.get(x, y)
+        }
+    }
+    sum / (w*w) as f32
+}
+
+pub fn mean_filter(pixels: &Pixels, w: i32) -> Pixels {
+    let mut new_data = vec![0.0; pixels.data.len()];
+    for row in 0..pixels.height as i32 {
+        for col in 0..pixels.width as i32 {
+            let idx = col + row*pixels.width as i32;
+            new_data[idx as usize] = window_mean(pixels, col, row, w);
+        }
+    }
+    Pixels::new_with_data(pixels.width, pixels.height, new_data)
 }
 
 pub fn load_png_to_pixels(png_path: &str) -> Pixels {
