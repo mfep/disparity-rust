@@ -37,7 +37,7 @@ impl Pixels {
     }
 }
 
-fn window_mean(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
+fn mean_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
     let d = w/2;
     let mut sum = 0.0;
     for row in cy-d..cy+d+1 {
@@ -49,9 +49,9 @@ fn window_mean(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
     sum / (w*w) as f32
 }
 
-fn window_std(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
+fn std_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
     let d = w/2;
-    let mean = window_mean(&pixels, cx, cy, w);
+    let mean = mean_window(&pixels, cx, cy, w);
     let mut sum = 0.0;
     for row in cy-d..cy+d+1 {
         for col in cx-d..cx+d+1 {
@@ -63,12 +63,26 @@ fn window_std(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
     sum.sqrt()
 }
 
+fn zncc_window(l_pix: &Pixels, r_pix: &Pixels, cx: i32, cy: i32, w: i32, d: i32, l_mean: f32) -> f32 {
+    let d = w/2;
+    let r_mean = mean_window(&r_pix, cx, cy, w);
+    let mut sum = 0.0;
+    for row in cy-d..cy+d+1 {
+        for col in cx-d..cx+d+1 {
+            let (l_x, y) = l_pix.clamp_xy(col, row);
+            let (r_x, _) = r_pix.clamp_xy(col - d, row);
+            sum += (l_pix.get(l_x, y) - l_mean)*(r_pix.get(r_x, y) - r_mean);
+        }
+    }
+    sum / std_window(&l_pix, cx, cy, w) / std_window(&r_pix, cx - d, cy, w)
+}
+
 pub fn mean_filter(pixels: &Pixels, w: i32) -> Pixels {
     let mut new_data = vec![0.0; pixels.data.len()];
     for row in 0..pixels.height as i32 {
         for col in 0..pixels.width as i32 {
             let idx = col + row*pixels.width as i32;
-            new_data[idx as usize] = window_mean(pixels, col, row, w);
+            new_data[idx as usize] = mean_window(pixels, col, row, w);
         }
     }
     Pixels::new_with_data(pixels.width, pixels.height, new_data)
@@ -79,7 +93,7 @@ pub fn std_filter(pixels: &Pixels, w: i32) -> Pixels {
     for row in 0..pixels.height as i32 {
         for col in 0..pixels.width as i32 {
             let idx = col + row*pixels.width as i32;
-            new_data[idx as usize] = window_std(pixels, col, row, w);
+            new_data[idx as usize] = std_window(pixels, col, row, w);
         }
     }
     Pixels::new_with_data(pixels.width, pixels.height, new_data)
