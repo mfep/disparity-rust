@@ -3,6 +3,7 @@ use png::HasParameters;
 use std::fs::File;
 use std::io::BufWriter;
 use std::cmp::{min, max};
+type Range = std::ops::Range<i32>;
 
 pub struct Pixels {
     width: usize,
@@ -27,11 +28,16 @@ impl Pixels {
     }
 }
 
-fn mean_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
+fn window_ranges(cx: i32, cy: i32, w: i32) -> (Range, Range) {
     let d = w/2;
+    (cx-d..cx+d+1, cy-d..cy+d+1)
+}
+
+fn mean_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
+    let (xr, yr) = window_ranges(cx, cy, w);
     let mut sum = 0.0;
-    for row in cy-d..cy+d+1 {
-        for col in cx-d..cx+d+1 {
+    for row in yr {
+        for col in xr.clone() {
             sum += pixels.get(col, row)
         }
     }
@@ -39,11 +45,11 @@ fn mean_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
 }
 
 fn std_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
-    let d = w/2;
+    let (xr, yr) = window_ranges(cx, cy, w);
     let mean = mean_window(&pixels, cx, cy, w);
     let mut sum = 0.0;
-    for row in cy-d..cy+d+1 {
-        for col in cx-d..cx+d+1 {
+    for row in yr {
+        for col in xr.clone() {
             let val = pixels.get(col, row);
             sum += (val - mean)*(val - mean);
         }
@@ -52,11 +58,11 @@ fn std_window(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
 }
 
 fn zncc_window(l_pix: &Pixels, r_pix: &Pixels, cx: i32, cy: i32, w: i32, disp: i32, l_mean: f32) -> f32 {
-    let d = w/2;
+    let (xr, yr) = window_ranges(cx, cy, w);
     let r_mean = mean_window(&r_pix, cx, cy, w);
     let mut sum = 0.0;
-    for row in cy-d..cy+d+1 {
-        for col in cx-d..cx+d+1 {
+    for row in yr {
+        for col in xr.clone() {
             sum += (l_pix.get(col, row) - l_mean)*(r_pix.get(col - disp, row) - r_mean);
         }
     }
