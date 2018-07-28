@@ -49,12 +49,37 @@ fn window_mean(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
     sum / (w*w) as f32
 }
 
+fn window_std(pixels: &Pixels, cx: i32, cy: i32, w: i32) -> f32 {
+    let d = w/2;
+    let mean = window_mean(&pixels, cx, cy, w);
+    let mut sum = 0.0;
+    for row in cy-d..cy+d+1 {
+        for col in cx-d..cx+d+1 {
+            let (x, y) = pixels.clamp_xy(col, row);
+            let val = pixels.get(x, y);
+            sum += (val - mean)*(val - mean);
+        }
+    }
+    sum.sqrt()
+}
+
 pub fn mean_filter(pixels: &Pixels, w: i32) -> Pixels {
     let mut new_data = vec![0.0; pixels.data.len()];
     for row in 0..pixels.height as i32 {
         for col in 0..pixels.width as i32 {
             let idx = col + row*pixels.width as i32;
             new_data[idx as usize] = window_mean(pixels, col, row, w);
+        }
+    }
+    Pixels::new_with_data(pixels.width, pixels.height, new_data)
+}
+
+pub fn std_filter(pixels: &Pixels, w: i32) -> Pixels {
+    let mut new_data = vec![0.0; pixels.data.len()];
+    for row in 0..pixels.height as i32 {
+        for col in 0..pixels.width as i32 {
+            let idx = col + row*pixels.width as i32;
+            new_data[idx as usize] = window_std(pixels, col, row, w);
         }
     }
     Pixels::new_with_data(pixels.width, pixels.height, new_data)
