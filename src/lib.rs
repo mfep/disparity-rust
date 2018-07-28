@@ -83,6 +83,20 @@ fn best_zncc(l_pix: &Pixels, r_pix: &Pixels, cx: i32, cy: i32, w: i32, max_d: us
     best_disp
 }
 
+fn best_disp_part(l_pix: &Pixels, r_pix: &Pixels, w: i32,
+                  max_disp: usize, start_row: usize, end_row: usize) -> Vec<f32>
+{
+    let mut data = vec![0.0; (end_row - start_row)*l_pix.width];
+    for row in start_row..end_row {
+        for col in 0..l_pix.width {
+            let idx = col + (row - start_row)*l_pix.width;
+            let best_disp = best_zncc(&l_pix, &r_pix, col as i32, row as i32, w, max_disp);
+            data[idx as usize] = best_disp as f32 / max_disp as f32;
+        }
+    }
+    data
+}
+
 pub fn mean_filter(pixels: &Pixels, w: i32) -> Pixels {
     let mut new_data = vec![0.0; pixels.data.len()];
     for row in 0..pixels.height as i32 {
@@ -108,13 +122,13 @@ pub fn std_filter(pixels: &Pixels, w: i32) -> Pixels {
 pub fn best_disp_map(l_pix: &Pixels, r_pix: &Pixels, w: i32, max_disp: usize) -> Pixels {
     assert_eq!(l_pix.width, r_pix.width);
     assert_eq!(l_pix.height, r_pix.height);
-    let mut new_data = vec![0.0; l_pix.data.len()];
-    for row in 0..l_pix.height as i32 {
-        for col in 0..l_pix.width as i32 {
-            let idx = col + row*l_pix.width as i32;
-            let best_disp = best_zncc(&l_pix, &r_pix, col, row, w, max_disp);
-            new_data[idx as usize] = best_disp as f32 / max_disp as f32;
-        }
+    let rows = l_pix.height/4;
+    let mut new_data = Vec::new();
+    for i in 0..4 {
+        let start_row = i*rows;
+        let end_row = (i + 1)*rows;
+        let mut data_part = best_disp_part(&l_pix, &r_pix, w, max_disp, start_row, end_row);
+        new_data.append(&mut data_part);
     }
     Pixels::new_with_data(l_pix.width, l_pix.height, new_data)
 }
