@@ -29,6 +29,56 @@ impl Pixels {
         let y = max(min(y, self.height as i32 - 1), 0);
         self.data[x as usize + y as usize * self.width]
     }
+
+    fn map_2d<F>(&self, f: F) -> Pixels
+    where
+        F: Fn(&f32, i32, i32) -> f32 + Sync,
+    {
+        let new_data = self
+            .data
+            .par_iter()
+            .enumerate()
+            .map(|(index, val)| {
+                f(
+                    val,
+                    (index % self.width) as i32,
+                    (index / self.width) as i32,
+                )
+            })
+            .collect();
+        Pixels::new_with_data(self.width, self.height, new_data)
+    }
+
+    fn transform_2d<F>(mut self, f: F) -> Pixels
+    where
+        F: Fn(&mut f32, i32, i32) + Sync,
+    {
+        let width = self.width;
+        self.data
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(index, val)| {
+                f(val, (index % width) as i32, (index / width) as i32);
+            });
+        self
+    }
+}
+
+pub fn resize_pixels(px: &Pixels, ratio: usize) -> Pixels {
+    let width = px.width / ratio;
+    let height = px.height / ratio;
+    let average_window = |cx: i32, cy: i32| {
+        let mut sum = 0.0;
+        for y in cy..cy + ratio as i32 {
+            for x in cx..cx + ratio as i32 {
+                sum += px.get(x, y);
+            }
+        }
+        sum / (ratio * ratio) as f32
+    };
+    Pixels::new_with_data(width, height, vec![0.0; width * height]).transform_2d(
+        |val: &mut f32, cx, cy| *val = average_window(cx * ratio as i32, cy * ratio as i32),
+    )
 }
 
 fn window_ranges(cx: i32, cy: i32, w: i32) -> (Range, Range) {
@@ -104,18 +154,7 @@ pub fn best_disp_map(
     assert_eq!(l_pix.width, r_pix.width);
     assert_eq!(l_pix.height, r_pix.height);
     assert_eq!(l_pix.height % threads, 0);
-    let index_to_xy = |index: usize| (index % l_pix.width, index / l_pix.width);
-    let new_data: Vec<f32> = l_pix
-        .data
-        .par_iter()
-        .enumerate()
-        .map(|(index, _)| {
-            let (col, row) = index_to_xy(index);
-            return best_zncc(&l_pix, &r_pix, col as i32, row as i32, w, max_disp) as f32
-                / max_disp as f32;
-        })
-        .collect();
-    Pixels::new_with_data(l_pix.width, l_pix.height, new_data)
+    l_pix.map_2d(|_, x, y| best_zncc(&l_pix, &r_pix, x, y, w, max_disp) as f32 / max_disp as f32)
 }
 
 pub fn load_png_to_pixels(png_path: &str) -> Pixels {
